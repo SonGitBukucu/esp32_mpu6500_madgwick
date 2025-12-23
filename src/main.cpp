@@ -1,124 +1,72 @@
 #include "FastIMU.h"
 #include <Wire.h>
+#include <Arduino.h>
 
-#define IMU_ADDRESS 0x68    //Change to the address of the IMU
-#define PERFORM_CALIBRATION //Comment to disable startup calibration
-MPU6500 IMU;               //Change to the name of any supported IMU! 
+#define ADDR_FOREARM 0x68
+#define ADDR_HAND    0x69
 
-// Currently supported IMUS: MPU9255 MPU9250 MPU6886 MPU6500 MPU6050 ICM20689 ICM20690 BMI055 BMX055 BMI160 LSM6DS3 LSM6DSL QMI8658
+MPU6500 IMU_F;
+MPU6500 IMU_H;
 
-calData calib = { 0 };  //Calibration data
-AccelData accelData;    //Sensor data
-GyroData gyroData;
-MagData magData;
+calData calF, calH;
+AccelData accF, accH; 
+GyroData gyroF, gyroH;
+
+// Variables for Angle Tracking
+float yawH = 0; 
+unsigned long lastMicros;
 
 void setup() {
   Wire.begin();
-  Wire.setClock(400000); //400khz clock
+  Wire.setClock(400000);
   Serial.begin(115200);
-  while (!Serial) {
-    ;
-  }
 
-  int err = IMU.init(calib, IMU_ADDRESS);
-  if (err != 0) {
-    Serial.print("Error initializing IMU: ");
-    Serial.println(err);
-    while (true) {
-      ;
-    }
-  }
+  // Init Sensors
+  IMU_F.init(calF, ADDR_FOREARM);
+  IMU_H.init(calH, ADDR_HAND);
+
+  // Calibration (Keep sensors still!)
+  Serial.println("Calibrating... DO NOT MOVE.");
+  delay(2000);
+  IMU_F.calibrateAccelGyro(&calF);
+  IMU_H.calibrateAccelGyro(&calH);
   
-#ifdef PERFORM_CALIBRATION
-  Serial.println("FastIMU calibration & data example");
-  if (IMU.hasMagnetometer()) {
-    delay(1000);
-    Serial.println("Move IMU in figure 8 pattern until done.");
-    delay(3000);
-    IMU.calibrateMag(&calib);
-    Serial.println("Magnetic calibration done!");
-  }
-  else {
-    delay(5000);
-  }
+  IMU_F.init(calF, ADDR_FOREARM);
+  IMU_H.init(calH, ADDR_HAND);
 
-  delay(5000);
-  Serial.println("Keep IMU level.");
-  delay(5000);
-  IMU.calibrateAccelGyro(&calib);
-  Serial.println("Calibration done!");
-  Serial.println("Accel biases X/Y/Z: ");
-  Serial.print(calib.accelBias[0]);
-  Serial.print(", ");
-  Serial.print(calib.accelBias[1]);
-  Serial.print(", ");
-  Serial.println(calib.accelBias[2]);
-  Serial.println("Gyro biases X/Y/Z: ");
-  Serial.print(calib.gyroBias[0]);
-  Serial.print(", ");
-  Serial.print(calib.gyroBias[1]);
-  Serial.print(", ");
-  Serial.println(calib.gyroBias[2]);
-  if (IMU.hasMagnetometer()) {
-    Serial.println("Mag biases X/Y/Z: ");
-    Serial.print(calib.magBias[0]);
-    Serial.print(", ");
-    Serial.print(calib.magBias[1]);
-    Serial.print(", ");
-    Serial.println(calib.magBias[2]);
-    Serial.println("Mag Scale X/Y/Z: ");
-    Serial.print(calib.magScale[0]);
-    Serial.print(", ");
-    Serial.print(calib.magScale[1]);
-    Serial.print(", ");
-    Serial.println(calib.magScale[2]);
-  }
-  delay(5000);
-  IMU.init(calib, IMU_ADDRESS);
-#endif
-
-  //err = IMU.setGyroRange(500);      //USE THESE TO SET THE RANGE, IF AN INVALID RANGE IS SET IT WILL RETURN -1
-  //err = IMU.setAccelRange(2);       //THESE TWO SET THE GYRO RANGE TO ±500 DPS AND THE ACCELEROMETER RANGE TO ±2g
-  
-  if (err != 0) {
-    Serial.print("Error Setting range: ");
-    Serial.println(err);
-    while (true) {
-      ;
-    }
-  }
+  lastMicros = micros();
+  Serial.println("System Ready!");
 }
 
 void loop() {
-  IMU.update();
-  IMU.getAccel(&accelData);
-  Serial.print(accelData.accelX);
-  Serial.print("\t");
-  Serial.print(accelData.accelY);
-  Serial.print("\t");
-  Serial.print(accelData.accelZ);
-  Serial.print("\t");
-  IMU.getGyro(&gyroData);
-  Serial.print(gyroData.gyroX);
-  Serial.print("\t");
-  Serial.print(gyroData.gyroY);
-  Serial.print("\t");
-  Serial.print(gyroData.gyroZ);
-  if (IMU.hasMagnetometer()) {
-    IMU.getMag(&magData);
-    Serial.print("\t");
-    Serial.print(magData.magX);
-    Serial.print("\t");
-    Serial.print(magData.magY);
-    Serial.print("\t");
-    Serial.print(magData.magZ);
+  // 1. Get Time Delta
+  unsigned long currentMicros = micros();
+  float dt = (currentMicros - lastMicros) / 1000000.0;
+  lastMicros = currentMicros;
+
+  // 2. Update Sensors
+  IMU_F.update();
+  IMU_H.update();
+  IMU_F.getAccel(&accF);
+  IMU_H.getAccel(&accH);
+  IMU_H.getGyro(&gyroH);
+
+  // 3. Pitch & Roll Math (using atan2 for stability)
+  // Converting the gravity vector into degrees
+  float pitchH = atan2(accH.accelX, sqrt(accH.accelY * accH.accelY + accH.accelZ * accH.accelZ)) * 180.0 / PI;
+  float rollH  = atan2(accH.accelY, accH.accelZ) * 180.0 / PI;
+
+  // 4. Yaw Math (Gyro Integration)
+  if (abs(gyroH.gyroZ) > 0.8) { // Deadzone to reduce drift
+    yawH += gyroH.gyroZ * dt;
   }
-  if (IMU.hasTemperature()) {
-	  Serial.print("\t");
-	  Serial.println(IMU.getTemp());
-  }
-  else {
-    Serial.println();
-  }
-  delay(50);
+
+  // 5. Output for the Plotter
+  Serial.print("Pitch:"); Serial.print(pitchH);
+  Serial.print(",");
+  Serial.print("Roll:");  Serial.print(rollH);
+  Serial.print(",");
+  Serial.print("Yaw:");   Serial.println(yawH);
+
+  delay(10); // High-speed loop
 }
