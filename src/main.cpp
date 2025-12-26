@@ -13,7 +13,8 @@ AccelData accF, accH;
 GyroData gyroF, gyroH;
 
 // Variables for Angle Tracking
-float yawH = 0; 
+float yawH = 0;
+float yawF = 0; 
 unsigned long lastMicros;
 
 void setup() {
@@ -56,17 +57,24 @@ void loop() {
   float pitchH = atan2(accH.accelX, sqrt(accH.accelY * accH.accelY + accH.accelZ * accH.accelZ)) * 180.0 / PI;
   float rollH  = atan2(accH.accelY, accH.accelZ) * 180.0 / PI;
 
+  float pitchF = atan2(accF.accelX, sqrt(accF.accelY * accF.accelY + accF.accelZ * accF.accelZ)) * 180.0 / PI;
+  float rollF  = atan2(accF.accelY, accF.accelZ) * 180.0 / PI;
+
   // 4. Yaw Math (Gyro Integration)
   if (abs(gyroH.gyroZ) > 0.8) { // Deadzone to reduce drift
     yawH += gyroH.gyroZ * dt;
   }
 
+  if (abs(gyroF.gyroZ) > 0.8) {
+    yawF += gyroF.gyroZ * dt;
+  }
+
   // 5. Output for the Plotter
-  Serial.print("Pitch:"); Serial.print(pitchH);
+  Serial.print("Pitch:"); Serial.print(pitchF);
   Serial.print(",");
-  Serial.print("Roll:");  Serial.print(rollH);
+  Serial.print("Roll:");  Serial.print(rollF);
   Serial.print(",");
-  Serial.print("Yaw:");   Serial.println(yawH);
+  Serial.print("Yaw:");   Serial.println(yawF);
 
   delay(10); // High-speed loop
 }
