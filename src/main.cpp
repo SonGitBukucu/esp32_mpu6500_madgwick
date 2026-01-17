@@ -98,6 +98,10 @@ void loop() {
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #define ekranAdres 0x3C
 
+int16_t x, y;
+uint16_t w, h;
+int currentFileIndex = 500;
+
 #define NRF24_CE   2
 #define NRF24_CSN  5 //PLACEHOLDER
 #define NRF24_SCK  18
@@ -117,6 +121,7 @@ unsigned long counter = 0;
 
 void writeTest();
 void readTest();
+void showModeAndFile(const char*);
 
 RF24 radio(NRF24_CE,NRF24_CSN);
 
@@ -131,6 +136,7 @@ void setup() {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
 
+  /* KAYIT VE PLAYBACK
   display.setFont(&FreeSans12pt7b);
   display.setTextSize(1);
   display.setCursor(0, 20);
@@ -141,11 +147,30 @@ void setup() {
   display.setCursor(0, 60);
 
   display.print("H-");
-  display.print(654);
+  display.print(654); 
+  */
 
+  /* FAIL-SAFE
+  display.setFont(&FreeSans12pt7b);
+  display.setTextSize(1);
+  display.setCursor(0,32);
+  display.print("FAIL-SAFE");
   display.display();
-
+  */
+  
+  showModeAndFile("KAYIT");
   while(1);
+  display.setFont(&FreeSans12pt7b);
+  display.setTextSize(1);
+  display.getTextBounds("FAIL-SAFE", 0, 0, &x, &y, &w, &h);
+  Serial.println(w);
+  Serial.println(h);
+
+  display.setCursor((SCREEN_WIDTH - w) / 2, (SCREEN_HEIGHT - h) / 2);
+  display.print("SERBEST");
+  display.display();
+  
+  
   Serial.println("\n--- SPI STRESS TEST START ---");
   // Init HSPI (SD)
   
@@ -225,4 +250,29 @@ void readTest() {
     Serial.println(lastLine);
     while (1);
   }
+}
+
+void showModeAndFile(const char *modeText) {
+  int16_t x_1, y_1, x_2, y_2;
+  uint16_t w_1, h_1, w_2, h_2;
+  
+  display.clearDisplay();
+
+  display.setFont(&FreeSans12pt7b);
+  display.setTextSize(1);
+  display.getTextBounds(modeText, 0, 0, &x_1, &y_1, &w_1, &h_1);
+
+  display.setCursor((SCREEN_WIDTH - w_1) / 2, 20);
+  display.print(modeText);
+
+  display.setFont(&FreeSans12pt7b);
+  display.setTextSize(2);
+  String numara = "H-" + String(currentFileIndex);
+  display.getTextBounds(numara, 0, 0, &x_2, &y_2, &w_2, &h_2);
+  display.setCursor(0, 60);
+
+  display.print("H-");
+  display.print(currentFileIndex);
+
+  display.display();
 }
