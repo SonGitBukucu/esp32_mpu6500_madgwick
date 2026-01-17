@@ -1,3 +1,4 @@
+/*
 #include "FastIMU.h"
 #include <Wire.h>
 #include <Arduino.h>
@@ -77,4 +78,120 @@ void loop() {
   Serial.print("Yaw:");   Serial.println(yawF);
 
   delay(10); // High-speed loop
+}
+*/
+#include <Arduino.h>
+#include <SPI.h>
+#include <SD.h>
+
+#include <nRF24L01.h>
+#include <RF24.h>
+
+#define NRF24_CE   2
+#define NRF24_CSN  5 //PLACEHOLDER
+#define NRF24_SCK  18
+#define NRF24_MISO 19
+#define NRF24_MOSI 23
+
+// HSPI (SD Kart için özel pinler)
+// SCK: 13, MISO: 34, MOSI: 33, CS: 4
+#define SD_SCK  13
+#define SD_MISO 34
+#define SD_MOSI 33
+#define SD_CS   4
+
+SPIClass hspi = SPIClass(HSPI);
+SPIClass vspi = SPIClass(VSPI);
+unsigned long counter = 0;
+
+void writeTest();
+void readTest();
+
+RF24 radio(NRF24_CE,NRF24_CSN);
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("\n--- SPI STRESS TEST START ---");
+
+  // Init HSPI (SD)
+  /*
+  hspi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  if (!SD.begin(SD_CS, hspi, 4000000)) {
+    Serial.println("❌ SD init failed");
+    while (1);
+  }
+  Serial.println("✅ SD init OK (HSPI)");
+
+  // Init VSPI (unused)
+  vspi.begin(NRF24_SCK, NRF24_MISO, NRF24_MOSI, NRF24_CSN);
+  Serial.println("✅ VSPI init OK");
+
+  SD.remove("/stress.txt");
+  */
+
+  Serial.begin(115200);
+  delay(1000);
+
+  vspi.begin(NRF24_SCK, NRF24_MISO, NRF24_MOSI, NRF24_CSN);
+  radio.begin(&vspi);
+
+  bool ok = radio.isChipConnected();
+
+  Serial.print("NRF connected: ");
+  Serial.println(ok ? "YES" : "NO");
+
+  radio.setChannel(90);
+  Serial.print("Channel readback: ");
+  Serial.println(radio.getChannel());
+}
+
+void loop() {
+  writeTest();
+  readTest();
+
+  counter++;
+  if (counter % 10 == 0) {
+    Serial.print("OK cycles: ");
+    Serial.println(counter);
+  }
+
+  delay(20);
+}
+
+// --------------------------------
+
+void writeTest() {
+  File file = SD.open("/stress.txt", FILE_APPEND);
+  if (!file) {
+    Serial.println("❌ WRITE OPEN FAIL");
+    while (1);
+  }
+
+  file.print("LINE ");
+  file.println(counter);
+  file.close();
+}
+
+// --------------------------------
+
+void readTest() {
+  File file = SD.open("/stress.txt");
+  if (!file) {
+    Serial.println("❌ READ OPEN FAIL");
+    while (1);
+  }
+
+  String lastLine;
+  while (file.available()) {
+    lastLine = file.readStringUntil('\n');
+  }
+  file.close();
+
+  if (!lastLine.startsWith("LINE")) {
+    Serial.println("❌ DATA CORRUPTION");
+    Serial.println(lastLine);
+    while (1);
+  }
 }
