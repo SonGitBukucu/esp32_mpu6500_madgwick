@@ -87,6 +87,11 @@ void loop() {
 #include <nRF24L01.h>
 #include <RF24.h>
 
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Fonts/FreeSans24pt7b.h>
+
 #define NRF24_CE   2
 #define NRF24_CSN  5 //PLACEHOLDER
 #define NRF24_SCK  18
