@@ -90,7 +90,13 @@ void loop() {
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Fonts/FreeSans24pt7b.h>
+#include <Fonts/FreeSans12pt7b.h>
+#include <Fonts/FreeSans18pt7b.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+#define ekranAdres 0x3C
 
 #define NRF24_CE   2
 #define NRF24_CSN  5 //PLACEHOLDER
@@ -118,10 +124,31 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  Serial.println("\n--- SPI STRESS TEST START ---");
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;);
+  }
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
 
+  display.setFont(&FreeSans12pt7b);
+  display.setTextSize(1);
+  display.setCursor(0, 20);
+  display.print("PLAYBACK");
+
+  display.setFont(&FreeSans12pt7b);
+  display.setTextSize(2);
+  display.setCursor(0, 60);
+
+  display.print("H-");
+  display.print(654);
+
+  display.display();
+
+  while(1);
+  Serial.println("\n--- SPI STRESS TEST START ---");
   // Init HSPI (SD)
-  /*
+  
   hspi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
   if (!SD.begin(SD_CS, hspi, 4000000)) {
     Serial.println("❌ SD init failed");
@@ -134,10 +161,9 @@ void setup() {
   Serial.println("✅ VSPI init OK");
 
   SD.remove("/stress.txt");
-  */
+  
 
-  Serial.begin(115200);
-  delay(1000);
+  
 
   vspi.begin(NRF24_SCK, NRF24_MISO, NRF24_MOSI, NRF24_CSN);
   radio.begin(&vspi);
