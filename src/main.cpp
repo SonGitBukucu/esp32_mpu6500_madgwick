@@ -98,8 +98,6 @@ void loop() {
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #define ekranAdres 0x3C
 
-int16_t x, y;
-uint16_t w, h;
 int currentFileIndex = 500;
 
 #define NRF24_CE   2
@@ -160,13 +158,10 @@ void setup() {
   */
   
   
-  showText("SD HATA");
+  showModeAndFile("DENEME");
 
-  while(1);
-  display.setCursor((SCREEN_WIDTH - w) / 2, (SCREEN_HEIGHT - h) / 2);
-  display.print("SERBEST");
-  display.display();
-  
+  //while(1);
+
   
   Serial.println("\n--- SPI STRESS TEST START ---");
   // Init HSPI (SD)
