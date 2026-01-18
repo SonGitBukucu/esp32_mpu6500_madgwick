@@ -121,6 +121,7 @@ unsigned long counter = 0;
 
 void writeTest();
 void readTest();
+void showText(const char *);
 void showModeAndFile(const char*);
 
 RF24 radio(NRF24_CE,NRF24_CSN);
@@ -130,7 +131,7 @@ void setup() {
   delay(1000);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
+    Serial.println(F("SSD1306 allocation failed")); // OLED'de ekran hatası yazdırmak isterdim de bu imkansız bir şey :D
     for (;;);
   }
   display.clearDisplay();
@@ -158,14 +159,10 @@ void setup() {
   display.display();
   */
   
-  showModeAndFile("KAYIT");
-  while(1);
-  display.setFont(&FreeSans12pt7b);
-  display.setTextSize(1);
-  display.getTextBounds("FAIL-SAFE", 0, 0, &x, &y, &w, &h);
-  Serial.println(w);
-  Serial.println(h);
+  
+  showText("SD HATA");
 
+  while(1);
   display.setCursor((SCREEN_WIDTH - w) / 2, (SCREEN_HEIGHT - h) / 2);
   display.print("SERBEST");
   display.display();
@@ -177,6 +174,7 @@ void setup() {
   hspi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
   if (!SD.begin(SD_CS, hspi, 4000000)) {
     Serial.println("❌ SD init failed");
+    showText("SD HATA");
     while (1);
   }
   Serial.println("✅ SD init OK (HSPI)");
@@ -250,6 +248,20 @@ void readTest() {
     Serial.println(lastLine);
     while (1);
   }
+}
+
+void showText(const char *text) {
+  int16_t x_2, y_2;
+  uint16_t w_2, h_2;
+  
+  display.clearDisplay();
+
+  display.setFont(&FreeSans12pt7b);
+  display.setTextSize(1);
+  display.getTextBounds(text, 0, 0, &x_2, &y_2, &w_2, &h_2);
+  display.setCursor((SCREEN_WIDTH - w_2) / 2, 39);
+  display.print(text);
+  display.display();
 }
 
 void showModeAndFile(const char *modeText) {
