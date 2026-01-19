@@ -17,6 +17,9 @@ calData calibHand = { 0 };
 AccelData accF, accH; 
 GyroData gyroF, gyroH;
 
+float yawHand = 0;        // The total angle we've turned
+unsigned long lastMicros; // To track time
+
 void setup() {
   Wire.begin();
   Wire.setClock(400000);
@@ -48,28 +51,22 @@ void setup() {
 }
 
 void loop() {
-  // 1. Update both sensors
-  IMU_Forearm.update();
   IMU_Hand.update();
-
-  // 2. Get the data from the hardware
-  IMU_Forearm.getAccel(&accF);
-  IMU_Forearm.getGyro(&gyroF);
-  
-  IMU_Hand.getAccel(&accH);
   IMU_Hand.getGyro(&gyroH);
 
-  // 3. Print values to Serial Plotter
-  // Showing Accel Z (Gravity)
-  Serial.print("Forearm_AccelZ:"); Serial.print(accF.accelZ);
-  Serial.print(",");
-  Serial.print("Hand_AccelZ:"); Serial.print(accH.accelZ);
-  Serial.print(",");
+  // 1. Calculate how much time has passed (Delta Time)
+  unsigned long currentMicros = micros();
+  float dt = (currentMicros - lastMicros) / 1000000.0; // Convert to seconds
+  lastMicros = currentMicros;
 
-  // Showing Gyro Z (The "Screwdriver" Spin)
-  Serial.print("Forearm_SpinZ:"); Serial.print(gyroF.gyroZ);
-  Serial.print(",");
-  Serial.print("Hand_SpinZ:"); Serial.println(gyroH.gyroZ);
+  // 2. Integration: New Angle = Old Angle + (Speed * Time)
+  // We use a small "deadzone" (0.5) to stop tiny noise from drifting
+  if (abs(gyroH.gyroZ) > 0.5) { 
+    yawHand += gyroH.gyroZ * dt;
+  }
 
-  delay(20); 
+  Serial.print("Hand_Yaw:"); 
+  Serial.println(yawHand);
+
+  delay(10);
 }
