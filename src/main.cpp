@@ -1,115 +1,75 @@
+#include <Arduino.h>
 #include "FastIMU.h"
 #include <Wire.h>
-#include <Arduino.h>
 
+// Define the two addresses
+#define ADDR_FOREARM 0x68
+#define ADDR_HAND    0x69
 
-#define IMU_ADDRESS 0x68  //Change to the address of the IMU
-#define PERFORM_CALIBRATION //Comment to disable startup calibration
-MPU6500 IMU;        //Change to the name of any supported IMU! 
+// Two separate IMU objects
+MPU6500 IMU_Forearm;
+MPU6500 IMU_Hand;
 
-// Currently supported IMUS: MPU9255 MPU9250 MPU6886 MPU6500 MPU6050 ICM20689 ICM20690 BMI055 BMX055 BMI160 LSM6DS3 LSM6DSL QMI8658
+// Calibration and Data storage for both
+calData calibForearm = { 0 };
+calData calibHand = { 0 };
 
-calData calib = { 0 }; //Calibration data
-AccelData accelData;  //Sensor data
-GyroData gyroData;
-MagData magData;
+AccelData accF, accH; 
+GyroData gyroF, gyroH;
 
 void setup() {
- Wire.begin();
- Wire.setClock(400000); //400khz clock
- Serial.begin(115200);
- while (!Serial) {
-  ;
- }
+  Wire.begin();
+  Wire.setClock(400000);
+  Serial.begin(115200);
 
- int err = IMU.init(calib, IMU_ADDRESS);
- if (err != 0) {
-  Serial.print("Error initializing IMU: ");
-  Serial.println(err);
-  while (true) {
-   ;
+  // Initialize Forearm Sensor
+  Serial.println("Initializing Forearm IMU (0x68)...");
+  int err1 = IMU_Forearm.init(calibForearm, ADDR_FOREARM);
+  
+  // Initialize Hand Sensor
+  Serial.println("Initializing Hand IMU (0x69)...");
+  int err2 = IMU_Hand.init(calibHand, ADDR_HAND);
+
+  if (err1 != 0 || err2 != 0) {
+    Serial.println("Error initializing one of the IMUs. Check wiring and AD0 pin!");
+    while (true);
   }
- }
- 
- 
 
-#ifdef PERFORM_CALIBRATION
- Serial.println("FastIMU calibration & data example");
- if (IMU.hasMagnetometer()) {
-  delay(1000);
-  Serial.println("Move IMU in figure 8 pattern until done.");
-  delay(3000);
-  IMU.calibrateMag(&calib);
-  Serial.println("Magnetic calibration done!");
- }
- else {
-  delay(5000);
- }
-
- delay(5000);
- Serial.println("Keep IMU level.");
- delay(5000);
- IMU.calibrateAccelGyro(&calib);
- Serial.println("Calibration done!");
- Serial.println("Accel biases X/Y/Z: ");
- Serial.print(calib.accelBias[0]);
- Serial.print(", ");
- Serial.print(calib.accelBias[1]);
- Serial.print(", ");
- Serial.println(calib.accelBias[2]);
- Serial.println("Gyro biases X/Y/Z: ");
- Serial.print(calib.gyroBias[0]);
- Serial.print(", ");
- Serial.print(calib.gyroBias[1]);
- Serial.print(", ");
- Serial.println(calib.gyroBias[2]);
- if (IMU.hasMagnetometer()) {
-  Serial.println("Mag biases X/Y/Z: ");
-  Serial.print(calib.magBias[0]);
-  Serial.print(", ");
-  Serial.print(calib.magBias[1]);
-  Serial.print(", ");
-  Serial.println(calib.magBias[2]);
-  Serial.println("Mag Scale X/Y/Z: ");
-  Serial.print(calib.magScale[0]);
-  Serial.print(", ");
-  Serial.print(calib.magScale[1]);
-  Serial.print(", ");
-  Serial.println(calib.magScale[2]);
- }
- delay(5000);
- IMU.init(calib, IMU_ADDRESS);
-#endif
-
- //err = IMU.setGyroRange(500);   //USE THESE TO SET THE RANGE, IF AN INVALID RANGE IS SET IT WILL RETURN -1
- //err = IMU.setAccelRange(2);    //THESE TWO SET THE GYRO RANGE TO ±500 DPS AND THE ACCELEROMETER RANGE TO ±2g
- 
- if (err != 0) {
-  Serial.print("Error Setting range: ");
-  Serial.println(err);
-  while (true) {
-   ;
-  }
- }
+  // Quick Calibration - KEEP STILL!
+  Serial.println("Calibrating both... Keep sensors perfectly level and still.");
+  delay(2000);
+  IMU_Forearm.calibrateAccelGyro(&calibForearm);
+  IMU_Hand.calibrateAccelGyro(&calibHand);
+  Serial.println("Calibration Done!");
+  
+  // Re-init with calibration data
+  IMU_Forearm.init(calibForearm, ADDR_FOREARM);
+  IMU_Hand.init(calibHand, ADDR_HAND);
 }
 
-float smoothX = 0;
-float smoothY = 0;
-float smoothZ = 0;
-float alpha = 0.1; // Smoothing factor (0.0 to 1.0). Lower = Smoother but slower.
-
 void loop() {
-  IMU.update();
-  IMU.getAccel(&accelData);
+  // 1. Update both sensors
+  IMU_Forearm.update();
+  IMU_Hand.update();
 
-  // Low Pass Filter Formula: Result = (New * alpha) + (Old * (1 - alpha))
-  smoothX = (accelData.accelX * alpha) + (smoothX * (1.0 - alpha));
-  smoothY = (accelData.accelY * alpha) + (smoothY * (1.0 - alpha));
-  smoothZ = (accelData.accelZ * alpha) + (smoothZ * (1.0 - alpha));
-
-  Serial.print(smoothX); Serial.print("\t");
-  Serial.print(smoothY); Serial.print("\t");
-  Serial.println(smoothZ);
+  // 2. Get the data from the hardware
+  IMU_Forearm.getAccel(&accF);
+  IMU_Forearm.getGyro(&gyroF);
   
-  delay(10);
+  IMU_Hand.getAccel(&accH);
+  IMU_Hand.getGyro(&gyroH);
+
+  // 3. Print values to Serial Plotter
+  // Showing Accel Z (Gravity)
+  Serial.print("Forearm_AccelZ:"); Serial.print(accF.accelZ);
+  Serial.print(",");
+  Serial.print("Hand_AccelZ:"); Serial.print(accH.accelZ);
+  Serial.print(",");
+
+  // Showing Gyro Z (The "Screwdriver" Spin)
+  Serial.print("Forearm_SpinZ:"); Serial.print(gyroF.gyroZ);
+  Serial.print(",");
+  Serial.print("Hand_SpinZ:"); Serial.println(gyroH.gyroZ);
+
+  delay(20); 
 }
