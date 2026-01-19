@@ -93,36 +93,23 @@ void setup() {
  }
 }
 
+float smoothX = 0;
+float smoothY = 0;
+float smoothZ = 0;
+float alpha = 0.1; // Smoothing factor (0.0 to 1.0). Lower = Smoother but slower.
+
 void loop() {
- IMU.update();
- IMU.getAccel(&accelData);
- Serial.print(accelData.accelX);
- Serial.print("\t");
- Serial.print(accelData.accelY);
- Serial.print("\t");
- Serial.print(accelData.accelZ);
- Serial.print("\t");
- IMU.getGyro(&gyroData);
- Serial.print(gyroData.gyroX);
- Serial.print("\t");
- Serial.print(gyroData.gyroY);
- Serial.print("\t");
- Serial.print(gyroData.gyroZ);
- if (IMU.hasMagnetometer()) {
-  IMU.getMag(&magData);
-  Serial.print("\t");
-  Serial.print(magData.magX);
-  Serial.print("\t");
-  Serial.print(magData.magY);
-  Serial.print("\t");
-  Serial.print(magData.magZ);
- }
- if (IMU.hasTemperature()) {
-  Serial.print("\t");
-  Serial.println(IMU.getTemp());
- }
- else {
-  Serial.println();
- }
- delay(50);
+  IMU.update();
+  IMU.getAccel(&accelData);
+
+  // Low Pass Filter Formula: Result = (New * alpha) + (Old * (1 - alpha))
+  smoothX = (accelData.accelX * alpha) + (smoothX * (1.0 - alpha));
+  smoothY = (accelData.accelY * alpha) + (smoothY * (1.0 - alpha));
+  smoothZ = (accelData.accelZ * alpha) + (smoothZ * (1.0 - alpha));
+
+  Serial.print(smoothX); Serial.print("\t");
+  Serial.print(smoothY); Serial.print("\t");
+  Serial.println(smoothZ);
+  
+  delay(10);
 }
