@@ -1,6 +1,7 @@
 #include "FastIMU.h"
 #include <Wire.h>
 #include <Arduino.h>
+#include <MadgwickAHRS.h> // Common library for Madgwick
 
 #define IMU_ADDRESS 0x68  //Change to the address of the IMU
 #define PERFORM_CALIBRATION //Comment to disable startup calibration
@@ -12,6 +13,9 @@ calData calib = { 0 }; //Calibration data
 AccelData accelData;  //Sensor data
 GyroData gyroData;
 MagData magData;
+
+Madgwick filter;
+unsigned long lastMillis;
 
 void setup() {
  Wire.begin();
@@ -88,38 +92,33 @@ void setup() {
    ;
   }
  }
+
+ filter.begin(100); // Initialize filter at 100Hz
+  lastMillis = millis();
 }
 
 void loop() {
- IMU.update();
- IMU.getAccel(&accelData);
- Serial.print(accelData.accelX);
- Serial.print("\t");
- Serial.print(accelData.accelY);
- Serial.print("\t");
- Serial.print(accelData.accelZ);
- Serial.print("\t");
- IMU.getGyro(&gyroData);
- Serial.print(gyroData.gyroX);
- Serial.print("\t");
- Serial.print(gyroData.gyroY);
- Serial.print("\t");
- Serial.print(gyroData.gyroZ);
- if (IMU.hasMagnetometer()) {
-  IMU.getMag(&magData);
-  Serial.print("\t");
-  Serial.print(magData.magX);
-  Serial.print("\t");
-  Serial.print(magData.magY);
-  Serial.print("\t");
-  Serial.print(magData.magZ);
- }
- if (IMU.hasTemperature()) {
-  Serial.print("\t");
-  Serial.println(IMU.getTemp());
- }
- else {
-  Serial.println();
- }
- delay(50);
+  IMU.update();
+  IMU.getAccel(&accelData);
+  IMU.getGyro(&gyroData);
+
+  // 1. Calculate the time since the last update
+  unsigned long currentMillis = millis();
+  float dt = (currentMillis - lastMillis) / 1000.0;
+  lastMillis = currentMillis;
+
+  // 2. Update the Filter
+  // Note: Madgwick usually expects Gyro in degrees/sec and Accel in Gs
+  filter.updateIMU(gyroData.gyroX, gyroData.gyroY, gyroData.gyroZ, 
+                   accelData.accelX, accelData.accelY, accelData.accelZ);
+
+  // 3. Get the "Clean" Angles
+  float roll = filter.getRoll();
+  float pitch = filter.getPitch();
+  float yaw = filter.getYaw();
+
+  // 4. Plot it!
+  Serial.println(yaw);
+  
+  //delay(10); // Keep it around 100Hz for now
 }
