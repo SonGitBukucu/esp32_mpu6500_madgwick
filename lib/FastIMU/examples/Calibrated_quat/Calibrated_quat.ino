@@ -4,7 +4,7 @@
 
 #define IMU_ADDRESS 0x68    //Change to the address of the IMU
 #define PERFORM_CALIBRATION //Comment to disable startup calibration
-ICM20689 IMU;               //Change to the name of any supported IMU!
+MPU6500 IMU;               //Change to the name of any supported IMU!
 
 // Currently supported IMUS: MPU9255 MPU9250 MPU6886 MPU6500 MPU6050 ICM20689 ICM20690 BMI055 BMX055 BMI160 LSM6DS3 LSM6DSL QMI8658
 
